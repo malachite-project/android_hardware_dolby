@@ -86,11 +86,10 @@ fun Modifier.squishable(
 fun DolbyMainCard(
     enabled: Boolean,
     onEnabledChange: (Boolean) -> Unit,
+    miSoundEnabled: Boolean,
+    onMiSoundChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val haptic = rememberHapticFeedback()
-    val scope = rememberCoroutineScope()
-    
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
@@ -125,59 +124,91 @@ fun DolbyMainCard(
             Column(
                 modifier = Modifier.padding(20.dp)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.dolby_enable),
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (enabled) stringResource(R.string.dolby_on) 
-                                  else stringResource(R.string.dolby_off),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = enabled,
-                        onCheckedChange = { 
-                            scope.launch {
-                                haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.HEAVY_CLICK)
-                            }
-                            onEnabledChange(it)
-                        },
-                        thumbContent = {
-                            Crossfade(
-                                targetState = enabled,
-                                animationSpec = MaterialTheme.motionScheme.slowEffectsSpec(),
-                                label = "switch_icon"
-                            ) { isChecked ->
-                                if (isChecked) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Check,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Rounded.Close,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    )
-                }
+                MainCardSwitchRow(
+                    title = stringResource(R.string.dolby_enable),
+                    summary = if (enabled) stringResource(R.string.dolby_on)
+                              else stringResource(R.string.dolby_off),
+                    checked = enabled,
+                    onCheckedChange = onEnabledChange
+                )
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                MainCardSwitchRow(
+                    title = stringResource(R.string.misound_enable),
+                    summary = stringResource(R.string.misound_enable_summary),
+                    checked = miSoundEnabled,
+                    onCheckedChange = onMiSoundChange
+                )
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun MainCardSwitchRow(
+    title: String,
+    summary: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val haptic = rememberHapticFeedback()
+    val scope = rememberCoroutineScope()
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = summary,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = {
+                scope.launch {
+                    haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.HEAVY_CLICK)
+                }
+                onCheckedChange(it)
+            },
+            thumbContent = {
+                Crossfade(
+                    targetState = checked,
+                    animationSpec = MaterialTheme.motionScheme.slowEffectsSpec(),
+                    label = "switch_icon"
+                ) { isChecked ->
+                    if (isChecked) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        )
     }
 }
 

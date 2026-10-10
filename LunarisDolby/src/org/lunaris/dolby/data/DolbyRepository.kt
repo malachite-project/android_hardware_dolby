@@ -127,6 +127,27 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         if (enabled) {
             restoreSavedProfileIfNeeded()
         }
+        applyMiSound()
+    }
+
+    fun getMiSoundEnabled(): Boolean {
+        return defaultPrefs.getBoolean(DolbyConstants.PREF_MISOUND, false)
+    }
+
+    fun setMiSoundEnabled(enabled: Boolean) {
+        if (isReleased) return
+        defaultPrefs.edit().putBoolean(DolbyConstants.PREF_MISOUND, enabled).apply()
+        applyMiSound()
+    }
+
+    // The HAL ignores a value equal to its current one, so this is cheap to repeat.
+    private fun applyMiSound() {
+        try {
+            val value = if (getMiSoundEnabled()) 1 else 0
+            audioManager.setParameters("${DolbyConstants.MISOUND_HAL_KEY}=$value")
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error applying MiSound state: ${e.message}")
+        }
     }
 
     private fun checkIsOnSpeaker(): Boolean {

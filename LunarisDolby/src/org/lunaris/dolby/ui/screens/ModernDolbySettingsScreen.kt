@@ -210,7 +210,9 @@ private fun ModernDolbySettingsContent(
         item {
             DolbyMainCard(
                 enabled = state.settings.enabled,
-                onEnabledChange = { viewModel.setDolbyEnabled(it) }
+                onEnabledChange = { viewModel.setDolbyEnabled(it) },
+                miSoundEnabled = state.settings.miSoundEnabled,
+                onMiSoundChange = { viewModel.setMiSoundEnabled(it) }
             )
         }
 

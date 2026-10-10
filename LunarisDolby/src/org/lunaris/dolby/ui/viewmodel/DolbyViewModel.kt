@@ -74,6 +74,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
                 
                 val settings = DolbySettings(
                     enabled = enabled,
+                    miSoundEnabled = repository.getMiSoundEnabled(),
                     currentProfile = profile,
                     bassEnhancerEnabled = repository.getBassEnhancerEnabled(profile),
                     volumeLevelerEnabled = repository.getVolumeLevelerEnabled(profile),
@@ -115,15 +116,33 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 repository.setDolbyEnabled(enabled)
-                if (enabled) {
-                    DolbyEffectService.start(getApplication())
-                } else {
-                    DolbyEffectService.stop(getApplication())
-                }
+                updateEffectService()
                 loadSettings()
             } catch (e: Exception) {
                 DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
             }
+        }
+    }
+
+    fun setMiSoundEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            try {
+                repository.setMiSoundEnabled(enabled)
+                updateEffectService()
+                loadSettings()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound enabled: ${e.message}")
+            }
+        }
+    }
+
+    // The service also sends MiSound off again after an audio HAL restart, so it
+    // keeps running while MiSound is off even with Dolby off.
+    private fun updateEffectService() {
+        if (repository.getDolbyEnabled() || !repository.getMiSoundEnabled()) {
+            DolbyEffectService.start(getApplication())
+        } else {
+            DolbyEffectService.stop(getApplication())
         }
     }
 
