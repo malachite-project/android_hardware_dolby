@@ -24,6 +24,7 @@ data class DolbyProfile(
 
 data class DolbySettings(
     val enabled: Boolean = true,
+    val miSoundEnabled: Boolean = false,
     val currentProfile: Int = 0,
     val bassEnhancerEnabled: Boolean = false,
     val volumeLevelerEnabled: Boolean = false,
