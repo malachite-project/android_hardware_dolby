@@ -10,6 +10,8 @@ import android.content.SharedPreferences
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.provider.Settings
+import android.util.Log
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.DolbyConstants.DsParam
 import org.lunaris.dolby.R
@@ -37,6 +39,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     val volumeLevelerSupported = context.resources.getBoolean(R.bool.dolby_volume_leveler_supported)
     
     private var isReleased = false
+    private var lastSentMiSound = -1
     
     private var cachedPresets: List<EqualizerPreset>? = null
     private val presetCacheLock = Any()
@@ -130,13 +133,32 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         applyMiSound()
     }
 
+    // Kept in Settings.Global, not only in dolby_prefs: everything else this app shows is read
+    // back from the Dolby effect, so MiSound is the one switch that depends on the file alone,
+    // and testers saw it come back off after a reboot. The pref is still written and is
+    // migrated once.
     fun getMiSoundEnabled(): Boolean {
-        return defaultPrefs.getBoolean(DolbyConstants.PREF_MISOUND, false)
+        val resolver = context.contentResolver
+        val stored = Settings.Global.getInt(resolver, MISOUND_SETTING, -1)
+        if (stored != -1) return stored == 1
+        val fromPrefs = defaultPrefs.getBoolean(DolbyConstants.PREF_MISOUND, false)
+        try {
+            Settings.Global.putInt(resolver, MISOUND_SETTING, if (fromPrefs) 1 else 0)
+        } catch (e: Exception) {
+            Log.w(TAG, "Can't store MiSound state: ${e.message}")
+        }
+        return fromPrefs
     }
 
     fun setMiSoundEnabled(enabled: Boolean) {
         if (isReleased) return
+        try {
+            Settings.Global.putInt(context.contentResolver, MISOUND_SETTING, if (enabled) 1 else 0)
+        } catch (e: Exception) {
+            Log.w(TAG, "Can't store MiSound state: ${e.message}")
+        }
         defaultPrefs.edit().putBoolean(DolbyConstants.PREF_MISOUND, enabled).apply()
+        Log.i(TAG, "MiSound set to $enabled")
         applyMiSound()
     }
 
@@ -144,9 +166,13 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     private fun applyMiSound() {
         try {
             val value = if (getMiSoundEnabled()) 1 else 0
+            if (value != lastSentMiSound) {
+                Log.i(TAG, "Sending ${DolbyConstants.MISOUND_HAL_KEY}=$value")
+                lastSentMiSound = value
+            }
             audioManager.setParameters("${DolbyConstants.MISOUND_HAL_KEY}=$value")
         } catch (e: Exception) {
-            DolbyConstants.dlog(TAG, "Error applying MiSound state: ${e.message}")
+            Log.w(TAG, "Error applying MiSound state: ${e.message}")
         }
     }
 
@@ -931,6 +957,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     }
 
     companion object {
+        private const val MISOUND_SETTING = "lunaris_dolby_misound_enable"
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
         
