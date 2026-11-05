@@ -89,34 +89,48 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         try {
             val prefs = getProfilePrefs(profile)
             
-            val ieqPreset = prefs.getString(DolbyConstants.PREF_IEQ, "0")?.toIntOrNull() ?: 0
-            dolbyEffect.setDapParameter(DsParam.IEQ_PRESET, ieqPreset, profile)
-            
-            val hpVirtualizer = prefs.getBoolean(DolbyConstants.PREF_HP_VIRTUALIZER, false)
-            dolbyEffect.setDapParameter(DsParam.HEADPHONE_VIRTUALIZER, hpVirtualizer, profile)
-            
-            val spkVirtualizer = prefs.getBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, false)
-            dolbyEffect.setDapParameter(DsParam.SPEAKER_VIRTUALIZER, spkVirtualizer, profile)
-            
-            if (stereoWideningSupported) {
+            // Only what the user changed is sent again. A key that is not stored keeps the
+            // value the profile has in dax-default.xml; sending a fixed default here would
+            // replace the tuning (IEQ, dialogue enhancer, volume leveler) on every start.
+            prefs.getString(DolbyConstants.PREF_IEQ, null)?.toIntOrNull()?.let {
+                dolbyEffect.setDapParameter(DsParam.IEQ_PRESET, it, profile)
+            }
+
+            if (prefs.contains(DolbyConstants.PREF_HP_VIRTUALIZER)) {
+                val hpVirtualizer = prefs.getBoolean(DolbyConstants.PREF_HP_VIRTUALIZER, false)
+                dolbyEffect.setDapParameter(DsParam.HEADPHONE_VIRTUALIZER, hpVirtualizer, profile)
+            }
+
+            if (prefs.contains(DolbyConstants.PREF_SPK_VIRTUALIZER)) {
+                val spkVirtualizer = prefs.getBoolean(DolbyConstants.PREF_SPK_VIRTUALIZER, false)
+                dolbyEffect.setDapParameter(DsParam.SPEAKER_VIRTUALIZER, spkVirtualizer, profile)
+            }
+
+            if (stereoWideningSupported && prefs.contains(DolbyConstants.PREF_STEREO_WIDENING)) {
                 val stereoWidening = prefs.getInt(DolbyConstants.PREF_STEREO_WIDENING, 32)
                 dolbyEffect.setDapParameter(DsParam.STEREO_WIDENING_AMOUNT, stereoWidening, profile)
             }
-            
-            val dialogueEnabled = prefs.getBoolean(DolbyConstants.PREF_DIALOGUE, false)
-            dolbyEffect.setDapParameter(DsParam.DIALOGUE_ENHANCER_ENABLE, dialogueEnabled, profile)
-            
-            val dialogueAmount = prefs.getInt(DolbyConstants.PREF_DIALOGUE_AMOUNT, 6)
-            dolbyEffect.setDapParameter(DsParam.DIALOGUE_ENHANCER_AMOUNT, dialogueAmount, profile)
-            
-            val bassEnabled = prefs.getBoolean(DolbyConstants.PREF_BASS, false)
-            dolbyEffect.setDapParameter(DsParam.BASS_ENHANCER_ENABLE, bassEnabled, profile)
-            
-            if (volumeLevelerSupported) {
+
+            if (prefs.contains(DolbyConstants.PREF_DIALOGUE)) {
+                val dialogueEnabled = prefs.getBoolean(DolbyConstants.PREF_DIALOGUE, false)
+                dolbyEffect.setDapParameter(DsParam.DIALOGUE_ENHANCER_ENABLE, dialogueEnabled, profile)
+            }
+
+            if (prefs.contains(DolbyConstants.PREF_DIALOGUE_AMOUNT)) {
+                val dialogueAmount = prefs.getInt(DolbyConstants.PREF_DIALOGUE_AMOUNT, 6)
+                dolbyEffect.setDapParameter(DsParam.DIALOGUE_ENHANCER_AMOUNT, dialogueAmount, profile)
+            }
+
+            if (prefs.contains(DolbyConstants.PREF_BASS)) {
+                val bassEnabled = prefs.getBoolean(DolbyConstants.PREF_BASS, false)
+                dolbyEffect.setDapParameter(DsParam.BASS_ENHANCER_ENABLE, bassEnabled, profile)
+            }
+
+            if (volumeLevelerSupported && prefs.contains(DolbyConstants.PREF_VOLUME)) {
                 val volumeLeveler = prefs.getBoolean(DolbyConstants.PREF_VOLUME, false)
                 dolbyEffect.setDapParameter(DsParam.VOLUME_LEVELER_ENABLE, volumeLeveler, profile)
             }
-            
+
             DolbyConstants.dlog(TAG, "Successfully restored all settings for profile $profile")
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Failed to restore profile settings: ${e.message}")
