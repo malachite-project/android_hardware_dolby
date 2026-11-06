@@ -123,14 +123,31 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    // This app is persistent, so Android restarts it at once if this throws. A failed effect
+    // call in the service's onCreate became a crash loop of about 9 per second. Get a new
+    // effect instead; the next audio change applies the state again.
     fun applySavedState() {
-    checkEffect()
-        val enabled = defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
-        dolbyEffect.dsOn = enabled
-        if (enabled) {
-            restoreSavedProfileIfNeeded()
+        try {
+            checkEffect()
+            val enabled = defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
+            dolbyEffect.dsOn = enabled
+            if (enabled) {
+                restoreSavedProfileIfNeeded()
+            }
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Can't apply Dolby state: ${e.message}")
+            recreateEffect()
         }
         applyMiSound()
+    }
+
+    private fun recreateEffect() {
+        try {
+            dolbyEffect.release()
+            dolbyEffect = createDolbyEffect()
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Can't recreate Dolby effect: ${e.message}")
+        }
     }
 
     // Kept in Settings.Global, not only in dolby_prefs: everything else this app shows is read
