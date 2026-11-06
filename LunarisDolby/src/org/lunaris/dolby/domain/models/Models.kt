@@ -22,6 +22,14 @@ data class DolbyProfile(
     val nameResId: Int
 )
 
+// libmisound builds its equalizer from the resource file of the output: a 7-band one for the
+// speaker, a 10-band one for wired and USB headphones. Bands are the filter centres in Hz.
+enum class MiSoundOutput(val bands: List<Int>) {
+    SPEAKER(listOf(130, 175, 400, 1000, 2400, 5650, 8400)),
+    HEADPHONES(listOf(141, 234, 469, 844, 1313, 2250, 3750, 5813, 9000, 13875)),
+    OTHER(emptyList())
+}
+
 data class DolbySettings(
     val enabled: Boolean = true,
     val miSoundEnabled: Boolean = false,
