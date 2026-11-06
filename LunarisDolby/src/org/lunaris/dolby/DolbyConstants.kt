@@ -30,7 +30,6 @@ object DolbyConstants {
     const val PREF_VOLUME = "dolby_volume"
     const val PREF_PRESETS_MIGRATED = "presets_migrated"
     const val PREF_BAND_MODE = "dolby_band_mode"
-    const val PREF_MISOUND = "misound_enable"
 
     // Audio HAL key for Xiaomi's MiSound processing (libmisound in the aurisys
     // playback chain). The HAL starts with it on and forgets it when it restarts.
