@@ -21,7 +21,7 @@
 
     <!-- MiSound -->
     <string name="misound_enable">Mi Sound</string>
-    <string name="misound_enable_summary">Xiaomi\'s own sound tuning, applied after Dolby. Keep off to hear Dolby alone.</string>
+    <string name="misound_enable_summary">Xiaomi\'s own sound tuning, used while Dolby is off, as on HyperOS.</string>
     <string name="dolby_category_settings">Audio tuning</string>
     <string name="dolby_category_adv_settings">Advanced settings</string>
     <string name="dolby_adv_settings_footer">Choose a different profile to show advanced settings.</string>
