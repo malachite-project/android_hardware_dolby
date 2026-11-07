@@ -61,7 +61,7 @@ fun MiSoundEqualizerScreen(
                     if (showBands) {
                         IconButton(
                             onClick = {
-                                gains.indices.forEach { gains[it] = 0f }
+                                gains.indices.forEach { gains[it] = output.defaultGains[it] }
                                 viewModel.setMiSoundEqGains(output, gains.toList())
                             }
                         ) {
