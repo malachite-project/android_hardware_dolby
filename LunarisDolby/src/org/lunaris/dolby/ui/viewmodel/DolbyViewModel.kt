@@ -152,17 +152,11 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // The service also sends MiSound off again after an audio HAL restart, so it
-    // keeps running while MiSound is off even with Dolby off. It follows the output
-    // for the Mi Sound equalizer too, whose bands differ between speaker and headphones.
+    // The service sends MiSound off again after an audio HAL restart, and follows the output
+    // for the Mi Sound equalizer, whose default differs between speaker and headphones. Every
+    // state needs one of the two, so it always runs.
     private fun updateEffectService() {
-        if (repository.getDolbyEnabled() || !repository.getMiSoundEnabled() ||
-            repository.hasMiSoundEq()
-        ) {
-            DolbyEffectService.start(getApplication())
-        } else {
-            DolbyEffectService.stop(getApplication())
-        }
+        DolbyEffectService.start(getApplication())
     }
 
     fun setProfile(profile: Int) {

@@ -25,7 +25,7 @@
     <string name="misound_eq_title">Mi Sound equalizer</string>
     <string name="misound_eq_speaker">Speaker</string>
     <string name="misound_eq_headphones">Headphones</string>
-    <string name="misound_eq_reset">Reset to flat</string>
+    <string name="misound_eq_reset">Reset to default</string>
     <string name="misound_eq_turn_on">Turn on Mi Sound to use its equalizer.</string>
     <string name="misound_eq_no_output">The Mi Sound equalizer works on the speaker and on wired or USB headphones.</string>
     <string name="dolby_category_settings">Audio tuning</string>

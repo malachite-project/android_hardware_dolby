@@ -191,16 +191,12 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
-    fun hasMiSoundEq(): Boolean {
-        return defaultPrefs.contains(miSoundEqPref(MiSoundOutput.SPEAKER)) ||
-            defaultPrefs.contains(miSoundEqPref(MiSoundOutput.HEADPHONES))
-    }
-
     fun getMiSoundEqGains(output: MiSoundOutput): List<Float> {
-        val flat = List(output.bands.size) { 0f }
-        val saved = defaultPrefs.getString(miSoundEqPref(output), null) ?: return flat
-        val gains = saved.split("#").mapNotNull { it.toFloatOrNull() }
-        return if (gains.size == output.bands.size) gains else flat
+        val saved = defaultPrefs.getString(miSoundEqPref(output), null)
+            ?: return output.defaultGains
+        // Stored as sent, ten values, so the speaker's seven are the first ones.
+        val gains = saved.split("#").mapNotNull { it.toFloatOrNull() }.take(output.bands.size)
+        return if (gains.size == output.bands.size) gains else output.defaultGains
     }
 
     fun setMiSoundEqGains(output: MiSoundOutput, gains: List<Float>) {
@@ -225,7 +221,6 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     // Unlike MisoundEnable, the HAL passes these on every time, so send only what changed. Two
     // calls, gains first: the HAL handles EQEnable first and sends its stored gains along with it.
     private fun applyMiSoundEq() {
-        if (!hasMiSoundEq()) return
         val output = checkMiSoundOutput()
         if (output == MiSoundOutput.OTHER) return
         val gains = getMiSoundEqGains(output)
