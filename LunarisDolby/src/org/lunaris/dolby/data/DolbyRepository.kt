@@ -123,31 +123,38 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         }
     }
 
+    // This app is persistent, so Android restarts it at once if this throws. A failed effect
+    // call in the service's onCreate became a crash loop of about 9 per second. Get a new
+    // effect instead; the next audio change applies the state again.
     fun applySavedState() {
-    checkEffect()
-        val enabled = defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
-        dolbyEffect.dsOn = enabled
-        if (enabled) {
-            restoreSavedProfileIfNeeded()
+        try {
+            checkEffect()
+            val enabled = defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
+            dolbyEffect.dsOn = enabled
+            if (enabled) {
+                restoreSavedProfileIfNeeded()
+            }
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Can't apply Dolby state: ${e.message}")
+            recreateEffect()
         }
         applyMiSound()
     }
 
-    // Kept in Settings.Global, not only in dolby_prefs: everything else this app shows is read
-    // back from the Dolby effect, so MiSound is the one switch that depends on the file alone,
-    // and testers saw it come back off after a reboot. The pref is still written and is
-    // migrated once.
-    fun getMiSoundEnabled(): Boolean {
-        val resolver = context.contentResolver
-        val stored = Settings.Global.getInt(resolver, MISOUND_SETTING, -1)
-        if (stored != -1) return stored == 1
-        val fromPrefs = defaultPrefs.getBoolean(DolbyConstants.PREF_MISOUND, false)
+    private fun recreateEffect() {
         try {
-            Settings.Global.putInt(resolver, MISOUND_SETTING, if (fromPrefs) 1 else 0)
-        } catch (e: Exception) {
-            Log.w(TAG, "Can't store MiSound state: ${e.message}")
+            dolbyEffect.release()
+            dolbyEffect = createDolbyEffect()
+        } catch (e: RuntimeException) {
+            Log.w(TAG, "Can't recreate Dolby effect: ${e.message}")
         }
-        return fromPrefs
+    }
+
+    // Stock HyperOS runs Dolby or Mi Sound, never both: Dolby off turns Mi Sound on. This switch
+    // says whether Mi Sound plays while Dolby is off, on by default. It is a new setting because
+    // the old one meant "together with Dolby" and was off for nearly everyone.
+    fun getMiSoundEnabled(): Boolean {
+        return Settings.Global.getInt(context.contentResolver, MISOUND_SETTING, 1) == 1
     }
 
     fun setMiSoundEnabled(enabled: Boolean) {
@@ -157,7 +164,6 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
         } catch (e: Exception) {
             Log.w(TAG, "Can't store MiSound state: ${e.message}")
         }
-        defaultPrefs.edit().putBoolean(DolbyConstants.PREF_MISOUND, enabled).apply()
         Log.i(TAG, "MiSound set to $enabled")
         applyMiSound()
     }
@@ -165,7 +171,8 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     // The HAL ignores a value equal to its current one, so this is cheap to repeat.
     private fun applyMiSound() {
         try {
-            val value = if (getMiSoundEnabled()) 1 else 0
+            val dolbyOn = defaultPrefs.getBoolean(DolbyConstants.PREF_ENABLE, false)
+            val value = if (getMiSoundEnabled() && !dolbyOn) 1 else 0
             if (value != lastSentMiSound) {
                 Log.i(TAG, "Sending ${DolbyConstants.MISOUND_HAL_KEY}=$value")
                 lastSentMiSound = value
@@ -208,6 +215,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
             checkEffect()
             dolbyEffect.dsOn = enabled
             defaultPrefs.edit().putBoolean(DolbyConstants.PREF_ENABLE, enabled).apply()
+            applyMiSound()
         } catch (e: Exception) {
             DolbyConstants.dlog(TAG, "Error setting Dolby enabled: ${e.message}")
         }
@@ -957,7 +965,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     }
 
     companion object {
-        private const val MISOUND_SETTING = "lunaris_dolby_misound_enable"
+        private const val MISOUND_SETTING = "lunaris_dolby_misound_when_off"
         private const val TAG = "DolbyRepository"
         private const val EFFECT_PRIORITY = 100
         
