@@ -12,6 +12,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.provider.Settings
 import android.util.Log
+import java.util.Locale
 import org.lunaris.dolby.DolbyConstants
 import org.lunaris.dolby.DolbyConstants.DsParam
 import org.lunaris.dolby.R
@@ -31,6 +32,9 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     
     private val _isOnSpeaker = MutableStateFlow(checkIsOnSpeaker())
     val isOnSpeaker: StateFlow<Boolean> = _isOnSpeaker.asStateFlow()
+
+    private val _miSoundOutput = MutableStateFlow(checkMiSoundOutput())
+    val miSoundOutput: StateFlow<MiSoundOutput> = _miSoundOutput.asStateFlow()
     
     private val _currentProfile = MutableStateFlow(0)
     val currentProfile: StateFlow<Int> = _currentProfile.asStateFlow()
@@ -40,6 +44,7 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     
     private var isReleased = false
     private var lastSentMiSound = -1
+    private var lastSentMiSoundEq: String? = null
     
     private var cachedPresets: List<EqualizerPreset>? = null
     private val presetCacheLock = Any()
@@ -192,8 +197,70 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
                 lastSentMiSound = value
             }
             audioManager.setParameters("${DolbyConstants.MISOUND_HAL_KEY}=$value")
+            if (value == 1) {
+                applyMiSoundEq()
+            }
         } catch (e: Exception) {
             Log.w(TAG, "Error applying MiSound state: ${e.message}")
+        }
+    }
+
+    fun getMiSoundEqGains(output: MiSoundOutput): List<Float> {
+        val saved = defaultPrefs.getString(miSoundEqPref(output), null)
+            ?: return output.defaultGains
+        // Stored as sent, ten values, so the speaker's seven are the first ones.
+        val gains = saved.split("#").mapNotNull { it.toFloatOrNull() }.take(output.bands.size)
+        return if (gains.size == output.bands.size) gains else output.defaultGains
+    }
+
+    fun setMiSoundEqGains(output: MiSoundOutput, gains: List<Float>) {
+        if (isReleased || output == MiSoundOutput.OTHER || gains.size != output.bands.size) return
+        val saved = gains.map {
+            it.coerceIn(DolbyConstants.MISOUND_EQ_MIN_DB, DolbyConstants.MISOUND_EQ_MAX_DB)
+        }
+        defaultPrefs.edit().putString(miSoundEqPref(output), formatMiSoundEqGains(saved)).apply()
+        applyMiSound()
+    }
+
+    private fun miSoundEqPref(output: MiSoundOutput) = "misound_eq_${output.name.lowercase(Locale.ROOT)}"
+
+    // Always ten values, one decimal. libmisound reads ten tokens without checking for the end,
+    // so fewer crash the audio HAL, and the HAL formats its command into 128 bytes, which leaves
+    // 71 characters: a cut value is the same crash. The speaker's EQ reads the first seven.
+    private fun formatMiSoundEqGains(gains: List<Float>): String {
+        return List(DolbyConstants.MISOUND_EQ_VALUES) { gains.getOrElse(it) { 0f } }
+            .joinToString("#") { String.format(Locale.ROOT, "%.1f", it) }
+    }
+
+    // Unlike MisoundEnable, the HAL passes these on every time, so send only what changed. Two
+    // calls, gains first: the HAL handles EQEnable first and sends its stored gains along with it.
+    private fun applyMiSoundEq() {
+        val output = checkMiSoundOutput()
+        if (output == MiSoundOutput.OTHER) return
+        val gains = getMiSoundEqGains(output)
+        val value = formatMiSoundEqGains(gains)
+        val enable = if (gains.any { it != 0f }) 1 else 0
+        val state = "$value/$enable"
+        if (state == lastSentMiSoundEq) return
+        Log.i(TAG, "Sending Mi Sound EQ for $output: $state")
+        audioManager.setParameters("${DolbyConstants.MISOUND_EQ_GAINS_KEY}=$value")
+        audioManager.setParameters("${DolbyConstants.MISOUND_EQ_ENABLE_KEY}=$enable")
+        lastSentMiSoundEq = state
+    }
+
+    private fun checkMiSoundOutput(): MiSoundOutput {
+        return try {
+            when (audioManager.getDevicesForAttributes(ATTRIBUTES_MEDIA)[0].type) {
+                AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> MiSoundOutput.SPEAKER
+                AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_USB_DEVICE,
+                AudioDeviceInfo.TYPE_USB_HEADSET -> MiSoundOutput.HEADPHONES
+                else -> MiSoundOutput.OTHER
+            }
+        } catch (e: Exception) {
+            DolbyConstants.dlog(TAG, "Error checking Mi Sound output: ${e.message}")
+            MiSoundOutput.OTHER
         }
     }
 
@@ -210,6 +277,9 @@ class DolbyRepository(private val context: Context) : AutoCloseable {
     fun updateSpeakerState() {
         if (!isReleased) {
             _isOnSpeaker.value = checkIsOnSpeaker()
+            _miSoundOutput.value = checkMiSoundOutput()
+            // Also the way back after an audio HAL restart, which forgets the EQ.
+            lastSentMiSoundEq = null
         }
     }
 

@@ -24,6 +24,7 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow<DolbyUiState>(DolbyUiState.Loading)
     val uiState: StateFlow<DolbyUiState> = _uiState.asStateFlow()
     val currentProfile: StateFlow<Int> = repository.currentProfile
+    val miSoundOutput: StateFlow<MiSoundOutput> = repository.miSoundOutput
     
     private var speakerStateJob: Job? = null
     private var profileChangeJob: Job? = null
@@ -136,14 +137,26 @@ class DolbyViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // The service also sends MiSound off again after an audio HAL restart, so it
-    // keeps running while MiSound is off even with Dolby off.
-    private fun updateEffectService() {
-        if (repository.getDolbyEnabled() || !repository.getMiSoundEnabled()) {
-            DolbyEffectService.start(getApplication())
-        } else {
-            DolbyEffectService.stop(getApplication())
+    fun getMiSoundEqGains(output: MiSoundOutput): List<Float> {
+        return repository.getMiSoundEqGains(output)
+    }
+
+    fun setMiSoundEqGains(output: MiSoundOutput, gains: List<Float>) {
+        viewModelScope.launch {
+            try {
+                repository.setMiSoundEqGains(output, gains)
+                updateEffectService()
+            } catch (e: Exception) {
+                DolbyConstants.dlog(TAG, "Error setting MiSound EQ: ${e.message}")
+            }
         }
+    }
+
+    // The service sends MiSound off again after an audio HAL restart, and follows the output
+    // for the Mi Sound equalizer, whose default differs between speaker and headphones. Every
+    // state needs one of the two, so it always runs.
+    private fun updateEffectService() {
+        DolbyEffectService.start(getApplication())
     }
 
     fun setProfile(profile: Int) {
