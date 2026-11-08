@@ -35,6 +35,13 @@ object DolbyConstants {
     // playback chain). The HAL starts with it on and forgets it when it restarts.
     const val MISOUND_HAL_KEY = "MisoundEnable"
 
+    // Equalizer inside libmisound, set through the same HAL as MISOUND_HAL_KEY.
+    const val MISOUND_EQ_GAINS_KEY = "EQGains"
+    const val MISOUND_EQ_ENABLE_KEY = "EQEnable"
+    const val MISOUND_EQ_VALUES = 10
+    const val MISOUND_EQ_MIN_DB = -6f
+    const val MISOUND_EQ_MAX_DB = 6f
+
     const val PREF_FILE_PRESETS = "presets"
 
     enum class DsParam(val id: Int, val length: Int = 1) {

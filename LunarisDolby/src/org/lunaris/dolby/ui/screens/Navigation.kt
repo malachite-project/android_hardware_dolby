@@ -7,11 +7,14 @@ package org.lunaris.dolby.ui.screens
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import org.lunaris.dolby.domain.models.DolbyUiState
 import org.lunaris.dolby.ui.viewmodel.AppProfileViewModel
 import org.lunaris.dolby.ui.viewmodel.DolbyViewModel
 import org.lunaris.dolby.ui.viewmodel.EqualizerViewModel
@@ -43,14 +46,24 @@ fun DolbyNavHost(
         }
 
         composable(Screen.Equalizer.route) {
-            LaunchedEffect(Unit) {
-                equalizerViewModel.loadEqualizer()
+            val dolbyState by dolbyViewModel.uiState.collectAsState()
+            val dolbyOff = (dolbyState as? DolbyUiState.Success)?.settings?.enabled == false
+
+            if (dolbyOff) {
+                MiSoundEqualizerScreen(
+                    viewModel = dolbyViewModel,
+                    navController = navController
+                )
+            } else {
+                LaunchedEffect(Unit) {
+                    equalizerViewModel.loadEqualizer()
+                }
+
+                ModernEqualizerScreen(
+                    viewModel = equalizerViewModel,
+                    navController = navController
+                )
             }
-            
-            ModernEqualizerScreen(
-                viewModel = equalizerViewModel,
-                navController = navController
-            )
         }
 
         composable(Screen.Advanced.route) {
